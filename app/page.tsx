@@ -21,11 +21,13 @@ import {
   initialSessions,
   initialMessages,
   initialProcessMaps,
+  initialNewsItems,
   type Task,
   type TeamMember,
   type ChatMessage,
   type BrainstormSession,
   type ProcessMap,
+  type NewsItem,
 } from '@/lib/store'
 
 export default function ThinkPage() {
@@ -35,6 +37,7 @@ export default function ThinkPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [sessions, setSessions] = useState<BrainstormSession[]>(initialSessions)
   const [processMaps, setProcessMaps] = useState<ProcessMap[]>(initialProcessMaps)
+  const [newsItems, setNewsItems] = useState<NewsItem[]>(initialNewsItems)
   const [isStreaming, setIsStreaming] = useState(false)
 
   const tasks = (useQuery(anyApi.tasks.list, {}) as Task[] | undefined) ?? []
@@ -98,6 +101,24 @@ export default function ThinkPage() {
     onAddIdea: handleAddBrainstormIdea,
   }), [handleCreateBrainstormSession, handleAddBrainstormIdea])
 
+  const handleAddIntelligence = useCallback((item: NewsItem) => {
+    setNewsItems(prev => [item, ...prev])
+  }, [])
+
+  const handleRemoveIntelligence = useCallback((id: string) => {
+    setNewsItems(prev => prev.filter(n => n.id !== id))
+  }, [])
+
+  const handleClearIntelligence = useCallback(() => {
+    setNewsItems([])
+  }, [])
+
+  const intelligenceActions = useMemo(() => ({
+    onAdd: handleAddIntelligence,
+    onRemove: handleRemoveIntelligence,
+    onClear: handleClearIntelligence,
+  }), [handleAddIntelligence, handleRemoveIntelligence, handleClearIntelligence])
+
   // For streaming: update existing message or add new one
   const handleSendMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
@@ -153,7 +174,7 @@ export default function ThinkPage() {
       case 'brainstorm':
         return <BrainstormView key="brainstorm" sessions={sessions} onUpdateSessions={handleUpdateSessions} />
       case 'news':
-        return <NewsView key="news" />
+        return <NewsView key="news" newsItems={newsItems} />
       case 'team':
         return <TeamView key="team" tasks={tasks} />
       case 'vc-pipeline':
@@ -215,8 +236,10 @@ export default function ThinkPage() {
         milestones={milestones}
         sessions={sessions}
         processMaps={processMaps}
+        newsItems={newsItems}
         taskActions={taskActions}
         brainstormActions={brainstormActions}
+        intelligenceActions={intelligenceActions}
       />
 
       <MobileNav
@@ -246,8 +269,10 @@ export default function ThinkPage() {
               milestones={milestones}
               sessions={sessions}
               processMaps={processMaps}
+              newsItems={newsItems}
               taskActions={taskActions}
               brainstormActions={brainstormActions}
+              intelligenceActions={intelligenceActions}
             />
           </div>
         </div>

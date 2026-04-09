@@ -5,13 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUp, Sparkles } from 'lucide-react'
 import {
   team,
-  newsItems,
   type ChatMessage,
   type TeamMember,
   type Task,
   type Milestone,
   type BrainstormSession,
   type ProcessMap,
+  type NewsItem,
 } from '@/lib/store'
 
 type ToolCall = {
@@ -31,6 +31,12 @@ type BrainstormActions = {
   onAddIdea: (sessionId: string, text: string) => void
 }
 
+type IntelligenceActions = {
+  onAdd: (item: NewsItem) => void
+  onRemove: (id: string) => void
+  onClear: () => void
+}
+
 type AtlasPanelProps = {
   isOpen: boolean
   messages: ChatMessage[]
@@ -42,8 +48,10 @@ type AtlasPanelProps = {
   milestones: Milestone[]
   sessions: BrainstormSession[]
   processMaps: ProcessMap[]
+  newsItems: NewsItem[]
   taskActions: TaskActions
   brainstormActions: BrainstormActions
+  intelligenceActions: IntelligenceActions
 }
 
 const quickPrompts = [
@@ -53,7 +61,7 @@ const quickPrompts = [
   "Draft a weekly investor update",
 ]
 
-export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStreaming, setIsStreaming, tasks, milestones, sessions, processMaps, taskActions, brainstormActions }: AtlasPanelProps) {
+export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStreaming, setIsStreaming, tasks, milestones, sessions, processMaps, newsItems, taskActions, brainstormActions, intelligenceActions }: AtlasPanelProps) {
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -187,9 +195,38 @@ ${currentUser.name} (${currentUser.role})`
           brainstormActions.onAddIdea(inp.sessionId, inp.text)
           break
         }
+        case 'add_intelligence': {
+          const inp = call.input as {
+            title: string; summary: string; source: string;
+            category: string; tags: string[]; relevance: string;
+            atlasNote?: string; featured?: boolean
+          }
+          intelligenceActions.onAdd({
+            id: `n${Date.now()}`,
+            title: inp.title,
+            summary: inp.summary,
+            source: inp.source,
+            timeAgo: 'Just now',
+            category: inp.category as NewsItem['category'],
+            tags: inp.tags,
+            relevance: inp.relevance as NewsItem['relevance'],
+            atlasNote: inp.atlasNote,
+            featured: inp.featured,
+          })
+          break
+        }
+        case 'remove_intelligence': {
+          const inp = call.input as { id: string }
+          intelligenceActions.onRemove(inp.id)
+          break
+        }
+        case 'clear_intelligence': {
+          intelligenceActions.onClear()
+          break
+        }
       }
     }
-  }, [taskActions, brainstormActions])
+  }, [taskActions, brainstormActions, intelligenceActions])
 
   const handleSend = async (text?: string) => {
     const msg = text || input.trim()

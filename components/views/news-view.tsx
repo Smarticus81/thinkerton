@@ -2,9 +2,9 @@
 
 import { motion } from 'framer-motion'
 import { Sparkles, ExternalLink } from 'lucide-react'
-import { newsItems } from '@/lib/store'
+import { type NewsItem } from '@/lib/store'
 
-export function NewsView() {
+export function NewsView({ newsItems }: { newsItems: NewsItem[] }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}

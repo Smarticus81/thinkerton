@@ -272,7 +272,7 @@ export const initialProcessMaps: ProcessMap[] = [
 
 // ─── News Feed ─────────────────────────────────────────
 
-export const newsItems: NewsItem[] = [
+export const initialNewsItems: NewsItem[] = [
   { id: 'n1', title: 'EU MDR Transitional Provisions Extended to 2028 for Legacy Devices', summary: 'The European Commission has published a regulation amending MDR 2017/745 to extend the transitional period for legacy devices.', source: 'Official Journal of the EU', timeAgo: '1d ago', category: 'regulatory', tags: ['MDR', 'EU Commission', 'Transition'], featured: true, atlasNote: 'This extension gives our target customers more breathing room, but actually increases demand for compliance tooling as they now have a firmer deadline.', relevance: 'high' },
   { id: 'n2', title: 'FDA Releases Updated Framework for AI/ML-Based SaMD', summary: 'The FDA has published its final guidance on a total product lifecycle approach for AI/ML-based Software as a Medical Device.', source: 'FDA.gov', timeAgo: '3d ago', category: 'ai-compliance', tags: ['FDA', 'AI/ML', 'SaMD'], featured: true, atlasNote: 'Directly relevant to how we classify our own product. The predetermined change control requirements affect our ML update methodology.', relevance: 'high' },
   { id: 'n3', title: 'ISO 13485:2025 Draft Standard Open for Comment', summary: 'The revised ISO 13485 quality management system standard is now open for public comment. Major changes include enhanced software validation requirements.', source: 'ISO.org', timeAgo: '4d ago', category: 'quality', tags: ['ISO 13485', 'QMS'], relevance: 'high' },

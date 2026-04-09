@@ -91,6 +91,40 @@ const tools: Anthropic.Messages.Tool[] = [
     },
   },
 
+  // ── Intelligence feed (client-side) ─────────────────────────────────────
+  {
+    name: 'add_intelligence',
+    description: 'Add a new article or insight to the intelligence feed. Use this after researching a topic to surface key findings to the team.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', description: 'Article/insight headline' },
+        summary: { type: 'string', description: 'Concise summary of the key findings' },
+        source: { type: 'string', description: 'Where this intelligence came from' },
+        category: { type: 'string', enum: ['regulatory', 'quality', 'ai-compliance', 'market'], description: 'Category' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tags for filtering' },
+        relevance: { type: 'string', enum: ['high', 'medium', 'low'], description: 'How relevant to Thinkerton' },
+        atlasNote: { type: 'string', description: 'Your strategic analysis of why this matters to us' },
+        featured: { type: 'boolean', description: 'Whether to feature this prominently' },
+      },
+      required: ['title', 'summary', 'source', 'category', 'tags', 'relevance'],
+    },
+  },
+  {
+    name: 'remove_intelligence',
+    description: 'Remove an outdated or irrelevant article from the intelligence feed.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { id: { type: 'string', description: 'News item ID to remove' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'clear_intelligence',
+    description: 'Clear all intelligence feed items. Use when doing a full refresh.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+
   // ── Web research (server-side) ─────────────────────────────────────────
   {
     name: 'web_search',
@@ -313,6 +347,7 @@ You have REAL tools. USE THEM. Don't describe actions — take them.
 
 **Task Management:** create_task, update_task, delete_task, clear_all_tasks
 **Brainstorm:** create_brainstorm_session, add_brainstorm_idea
+**Intelligence Feed:** add_intelligence (post findings), remove_intelligence (remove outdated items), clear_intelligence (full refresh)
 **Research:** web_search (search anything), web_fetch (read any URL), research_company (build a dossier)
 **Communication:** send_email (send real emails — outreach, reminders, follow-ups)
 **Utility:** get_current_datetime
@@ -337,7 +372,9 @@ You have REAL tools. USE THEM. Don't describe actions — take them.
 
 9. **Generate task IDs** as "t" + timestamp (e.g. "t1712345678"). New tasks always start as "todo".
 
-10. **When intelligence feed articles are referenced**, you already have them in context. Analyze them. If asked to verify, use web_fetch on the original source URL.`
+10. **When intelligence feed articles are referenced**, you already have them in context. Analyze them. If asked to verify, use web_fetch on the original source URL.
+
+11. **Manage the intelligence feed.** When you discover important news via web_search, add it to the intelligence feed with add_intelligence so the whole team sees it. Remove outdated items. Keep the feed relevant and actionable.`
 
     const formattedMessages = messages.map((msg: { role: string; content: string }) => ({
       role: msg.role as 'user' | 'assistant',
