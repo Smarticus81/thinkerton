@@ -66,6 +66,38 @@ export default function ThinkPage() {
     onClearAll: handleClearAllTasks,
   }), [handleCreateTask, handleUpdateTask, handleDeleteTask, handleClearAllTasks])
 
+  const handleCreateBrainstormSession = useCallback((title: string) => {
+    setSessions(prev => [...prev, {
+      id: `bs${Date.now()}`,
+      title,
+      status: 'active' as const,
+      createdAt: Date.now(),
+      ideas: [],
+    }])
+  }, [])
+
+  const handleAddBrainstormIdea = useCallback((sessionId: string, text: string) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id !== sessionId) return s
+      return {
+        ...s,
+        ideas: [...s.ideas, {
+          id: `idea-${Date.now()}`,
+          text,
+          author: 'atlas',
+          votes: 0,
+          timestamp: Date.now(),
+          isAtlas: true,
+        }],
+      }
+    }))
+  }, [])
+
+  const brainstormActions = useMemo(() => ({
+    onCreateSession: handleCreateBrainstormSession,
+    onAddIdea: handleAddBrainstormIdea,
+  }), [handleCreateBrainstormSession, handleAddBrainstormIdea])
+
   // For streaming: update existing message or add new one
   const handleSendMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
@@ -181,7 +213,10 @@ export default function ThinkPage() {
         setIsStreaming={setIsStreaming}
         tasks={tasks}
         milestones={milestones}
+        sessions={sessions}
+        processMaps={processMaps}
         taskActions={taskActions}
+        brainstormActions={brainstormActions}
       />
 
       <MobileNav
@@ -209,7 +244,10 @@ export default function ThinkPage() {
               setIsStreaming={setIsStreaming}
               tasks={tasks}
               milestones={milestones}
+              sessions={sessions}
+              processMaps={processMaps}
               taskActions={taskActions}
+              brainstormActions={brainstormActions}
             />
           </div>
         </div>

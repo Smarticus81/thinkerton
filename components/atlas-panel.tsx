@@ -3,7 +3,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUp, Sparkles } from 'lucide-react'
-import { team, type ChatMessage, type TeamMember, type Task, type Milestone } from '@/lib/store'
+import {
+  team,
+  newsItems,
+  type ChatMessage,
+  type TeamMember,
+  type Task,
+  type Milestone,
+  type BrainstormSession,
+  type ProcessMap,
+} from '@/lib/store'
 
 type ToolCall = {
   tool: string
@@ -17,6 +26,11 @@ type TaskActions = {
   onClearAll: () => void
 }
 
+type BrainstormActions = {
+  onCreateSession: (title: string) => void
+  onAddIdea: (sessionId: string, text: string) => void
+}
+
 type AtlasPanelProps = {
   isOpen: boolean
   messages: ChatMessage[]
@@ -26,7 +40,10 @@ type AtlasPanelProps = {
   setIsStreaming: (v: boolean) => void
   tasks: Task[]
   milestones: Milestone[]
+  sessions: BrainstormSession[]
+  processMaps: ProcessMap[]
   taskActions: TaskActions
+  brainstormActions: BrainstormActions
 }
 
 const quickPrompts = [
@@ -36,7 +53,7 @@ const quickPrompts = [
   "Suggest next steps",
 ]
 
-export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStreaming, setIsStreaming, tasks, milestones, taskActions }: AtlasPanelProps) {
+export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStreaming, setIsStreaming, tasks, milestones, sessions, processMaps, taskActions, brainstormActions }: AtlasPanelProps) {
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -58,18 +75,47 @@ export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStr
     }).join('\n')
 
     const milestoneSummary = milestones.map(m => {
-      return `- ${m.title}: ${m.progress}% complete, target ${m.date}`
+      return `- (${m.id}) ${m.title}: ${m.progress}% complete, target ${m.date} — ${m.description}`
+    }).join('\n')
+
+    const newsSummary = newsItems.map(n => {
+      return `- [${n.category.toUpperCase()}] (${n.id}) "${n.title}" — ${n.summary} (Source: ${n.source}, ${n.timeAgo}, relevance: ${n.relevance})${n.atlasNote ? `\n  ATLAS Note: ${n.atlasNote}` : ''}`
+    }).join('\n')
+
+    const sessionsSummary = sessions.map(s => {
+      const ideaCount = s.ideas.length
+      const ideasText = s.ideas.length > 0
+        ? s.ideas.map(i => `    - "${i.text}" (by ${i.author}, ${i.votes} votes)`).join('\n')
+        : '    (no ideas yet)'
+      return `- (${s.id}) "${s.title}" [${s.status}] — ${ideaCount} ideas\n${ideasText}`
+    }).join('\n')
+
+    const processMapSummary = processMaps.map(pm => {
+      const nodesText = pm.nodes.map(n => `    - [${n.type}] ${n.label}: ${n.description}`).join('\n')
+      return `- (${pm.id}) "${pm.title}" — ${pm.description}\n${nodesText}`
     }).join('\n')
 
     return `## Current Tasks (${tasks.length} total)
 ${taskSummary || 'No tasks created yet.'}
 
-## Milestones
+## Milestones (${milestones.length} total)
 ${milestoneSummary}
+
+## Intelligence Feed — News & Articles (${newsItems.length} articles)
+${newsSummary}
+
+## Brainstorm Sessions (${sessions.length} total)
+${sessionsSummary || 'No brainstorm sessions yet.'}
+
+## Process Maps / Workflows (${processMaps.length} total)
+${processMapSummary || 'No process maps yet.'}
+
+## Team
+${team.map(m => `- **${m.name}** (${m.id}) — ${m.role}`).join('\n')}
 
 ## Current User
 ${currentUser.name} (${currentUser.role})`
-  }, [tasks, milestones, currentUser])
+  }, [tasks, milestones, sessions, processMaps, currentUser])
 
   const buildApiMessages = useCallback((newUserText: string) => {
     const apiMessages: { role: 'user' | 'assistant'; content: string }[] = []
@@ -102,7 +148,7 @@ ${currentUser.name} (${currentUser.role})`
             milestoneId?: string
           }
           const task: Task = {
-            id: inp.milestoneId ? `t${Date.now()}` : `t${Date.now()}`,
+            id: `t${Date.now()}`,
             title: inp.title,
             description: inp.description,
             owner: inp.owner,
@@ -131,9 +177,19 @@ ${currentUser.name} (${currentUser.role})`
           taskActions.onClearAll()
           break
         }
+        case 'create_brainstorm_session': {
+          const inp = call.input as { title: string }
+          brainstormActions.onCreateSession(inp.title)
+          break
+        }
+        case 'add_brainstorm_idea': {
+          const inp = call.input as { sessionId: string; text: string }
+          brainstormActions.onAddIdea(inp.sessionId, inp.text)
+          break
+        }
       }
     }
-  }, [taskActions])
+  }, [taskActions, brainstormActions])
 
   const handleSend = async (text?: string) => {
     const msg = text || input.trim()
@@ -277,7 +333,7 @@ ${currentUser.name} (${currentUser.role})`
                   Hey, I'm ATLAS
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
-                  Your AI project assistant. I can create, update, and delete tasks, help with strategy, regulatory questions, and prioritization.
+                  Your AI command center agent. I can manage tasks, search the web, research regulations, brainstorm ideas, and analyze the Intelligence feed.
                 </div>
               </div>
             )}
