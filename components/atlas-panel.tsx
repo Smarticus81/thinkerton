@@ -47,10 +47,10 @@ type AtlasPanelProps = {
 }
 
 const quickPrompts = [
-  "What should we focus on this week?",
-  "Help me break down a task",
-  "What are our biggest risks?",
-  "Suggest next steps",
+  "Find us 5 potential customers",
+  "What's slipping? Hold us accountable",
+  "Research our top competitor",
+  "Draft a weekly investor update",
 ]
 
 export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStreaming, setIsStreaming, tasks, milestones, sessions, processMaps, taskActions, brainstormActions }: AtlasPanelProps) {
@@ -310,7 +310,7 @@ ${currentUser.name} (${currentUser.role})`
                 ATLAS
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-quaternary)' }}>
-                AI Assistant
+                AI Co-Founder
               </div>
             </div>
             <div className="flex items-center gap-1.5">
@@ -330,10 +330,10 @@ ${currentUser.name} (${currentUser.role})`
                   <Sparkles size={24} style={{ color: 'var(--accent)' }} />
                 </div>
                 <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-                  Hey, I'm ATLAS
+                  ATLAS — Your AI Co-Founder
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
-                  Your AI command center agent. I can manage tasks, search the web, research regulations, brainstorm ideas, and analyze the Intelligence feed.
+                  I drive results. I source customers, research competitors, send emails, manage tasks, and hold the team accountable. Let's build a unicorn.
                 </div>
               </div>
             )}

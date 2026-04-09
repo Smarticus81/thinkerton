@@ -5,59 +5,37 @@ const anthropic = new Anthropic({
 })
 
 // ---------------------------------------------------------------------------
-// Tool definitions — split into server-side (executed here) and client-side
-// (returned to the frontend for execution against Convex / React state)
+// Tools — ATLAS is the 5th co-founder: aggressive, action-oriented, relentless
 // ---------------------------------------------------------------------------
 
 const tools: Anthropic.Messages.Tool[] = [
   // ── Task management (client-side) ──────────────────────────────────────
   {
     name: 'create_task',
-    description:
-      'Create a new task in the project. Use this when a user asks to add, create, or make a new task.',
+    description: 'Create a new task and assign it to a team member. Use this proactively — if something needs doing, create the task, don\'t just suggest it.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        title: { type: 'string', description: 'Task title' },
-        description: { type: 'string', description: 'Task description' },
-        owner: {
-          type: 'string',
-          enum: ['terence', 'jon', 'umer', 'janice'],
-          description: 'Team member to assign the task to',
-        },
-        priority: {
-          type: 'string',
-          enum: ['critical', 'high', 'medium', 'low'],
-          description: 'Task priority level',
-        },
-        dueDate: {
-          type: 'string',
-          description: 'Due date in YYYY-MM-DD format',
-        },
-        tags: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Tags for categorization',
-        },
-        milestoneId: {
-          type: 'string',
-          description: 'Optional milestone ID (m1-m7)',
-        },
+        title: { type: 'string', description: 'Task title — be specific and action-oriented' },
+        description: { type: 'string', description: 'What exactly needs to be done and why it matters' },
+        owner: { type: 'string', enum: ['terence', 'jon', 'umer', 'janice'], description: 'Who owns this' },
+        priority: { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
+        dueDate: { type: 'string', description: 'Due date YYYY-MM-DD — be aggressive with timelines' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tags for categorization' },
+        milestoneId: { type: 'string', description: 'Milestone ID (m1-m7) if applicable' },
       },
       required: ['title', 'description', 'owner', 'priority', 'dueDate', 'tags'],
     },
   },
   {
     name: 'update_task',
-    description:
-      'Update an existing task. Use this when a user asks to change, modify, or update a task field like status, priority, owner, title, etc.',
+    description: 'Update a task — change status, reassign, adjust priority, set deliverables.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        id: { type: 'string', description: 'The task ID to update (e.g. t1, t2)' },
+        id: { type: 'string', description: 'Task ID' },
         updates: {
           type: 'object',
-          description: 'Fields to update',
           properties: {
             title: { type: 'string' },
             description: { type: 'string' },
@@ -77,93 +55,104 @@ const tools: Anthropic.Messages.Tool[] = [
   },
   {
     name: 'delete_task',
-    description:
-      'Delete a task. Use this when a user asks to remove, delete, or clear a specific task.',
+    description: 'Delete a task.',
     input_schema: {
       type: 'object' as const,
-      properties: {
-        id: { type: 'string', description: 'The task ID to delete (e.g. t1, t2)' },
-      },
+      properties: { id: { type: 'string' } },
       required: ['id'],
     },
   },
   {
     name: 'clear_all_tasks',
-    description:
-      'Delete ALL tasks from the project. Use this when a user asks to clear all tasks, reset tasks, remove everything, or start fresh.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-      required: [],
-    },
+    description: 'Wipe ALL tasks. Use when resetting or starting fresh.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
   },
 
-  // ── Brainstorm management (client-side) ────────────────────────────────
+  // ── Brainstorm (client-side) ───────────────────────────────────────────
   {
     name: 'create_brainstorm_session',
-    description:
-      'Create a new brainstorm session. Use when a user wants to start brainstorming a topic.',
+    description: 'Start a new brainstorm session on a strategic topic.',
     input_schema: {
       type: 'object' as const,
-      properties: {
-        title: { type: 'string', description: 'Session title / topic' },
-      },
+      properties: { title: { type: 'string' } },
       required: ['title'],
     },
   },
   {
     name: 'add_brainstorm_idea',
-    description:
-      'Add an idea to a brainstorm session. Use when a user suggests ideas or asks ATLAS to brainstorm.',
+    description: 'Drop an idea into a brainstorm session.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        sessionId: { type: 'string', description: 'The brainstorm session ID to add to' },
-        text: { type: 'string', description: 'The idea text' },
+        sessionId: { type: 'string' },
+        text: { type: 'string' },
       },
       required: ['sessionId', 'text'],
     },
   },
 
-  // ── Web / research (server-side — executed here in the API route) ──────
-  {
-    name: 'web_fetch',
-    description:
-      'Fetch and read the content of a URL. Use this to verify articles, check regulatory sources, read documentation, or research any web page. Returns the text content of the page.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        url: { type: 'string', description: 'The URL to fetch' },
-      },
-      required: ['url'],
-    },
-  },
+  // ── Web research (server-side) ─────────────────────────────────────────
   {
     name: 'web_search',
-    description:
-      'Search the web for information. Use this to research topics, find regulatory updates, verify claims, look up competitors, or find any information not already in the project context.',
+    description: 'Search the internet. Use for: competitor intel, finding potential customers, regulatory updates, market research, validating claims, finding contact info, tech trends — anything.',
     input_schema: {
       type: 'object' as const,
-      properties: {
-        query: { type: 'string', description: 'The search query' },
-      },
+      properties: { query: { type: 'string', description: 'Search query' } },
       required: ['query'],
     },
   },
   {
-    name: 'get_current_datetime',
-    description:
-      'Get the current date and time. Use when you need to know today\'s date for scheduling, due dates, or time-sensitive advice.',
+    name: 'web_fetch',
+    description: 'Read any URL — articles, company pages, LinkedIn profiles, regulatory docs, competitor pricing pages, GitHub repos, anything on the web.',
     input_schema: {
       type: 'object' as const,
-      properties: {},
-      required: [],
+      properties: { url: { type: 'string' } },
+      required: ['url'],
     },
+  },
+
+  // ── Email (server-side) ────────────────────────────────────────────────
+  {
+    name: 'send_email',
+    description: 'Send an email. Use for: team reminders, customer outreach, follow-ups, investor updates, partner introductions. Be professional but direct.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        to: { type: 'string', description: 'Recipient email address' },
+        subject: { type: 'string', description: 'Email subject line — concise and compelling' },
+        body: { type: 'string', description: 'Email body in plain text. Be professional, direct, and value-driven.' },
+        replyTo: { type: 'string', description: 'Optional reply-to address (defaults to team@thinkerton)' },
+      },
+      required: ['to', 'subject', 'body'],
+    },
+  },
+
+  // ── Lead research (server-side) ────────────────────────────────────────
+  {
+    name: 'research_company',
+    description: 'Deep-research a company as a potential customer, competitor, or partner. Searches the web and compiles a dossier.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        companyName: { type: 'string', description: 'Company name' },
+        purpose: { type: 'string', enum: ['prospect', 'competitor', 'partner', 'investor'], description: 'Why we\'re researching them' },
+      },
+      required: ['companyName', 'purpose'],
+    },
+  },
+
+  // ── Utility (server-side) ──────────────────────────────────────────────
+  {
+    name: 'get_current_datetime',
+    description: 'Get current date/time.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
   },
 ]
 
-// Server-side tool names — these are executed in this API route, not returned to the client
-const SERVER_TOOLS = new Set(['web_fetch', 'web_search', 'get_current_datetime'])
+const SERVER_TOOLS = new Set([
+  'web_fetch', 'web_search', 'get_current_datetime',
+  'send_email', 'research_company',
+])
 
 // ---------------------------------------------------------------------------
 // Server-side tool execution
@@ -174,68 +163,107 @@ async function executeServerTool(
   input: Record<string, unknown>
 ): Promise<string> {
   switch (name) {
-    case 'get_current_datetime': {
+    case 'get_current_datetime':
       return new Date().toISOString()
-    }
 
     case 'web_fetch': {
       const url = input.url as string
       try {
         const resp = await fetch(url, {
-          headers: { 'User-Agent': 'ATLAS-Agent/1.0' },
+          headers: { 'User-Agent': 'ATLAS-Agent/1.0 (Thinkerton)' },
           signal: AbortSignal.timeout(10_000),
         })
-        if (!resp.ok) {
-          return `HTTP ${resp.status}: ${resp.statusText}`
-        }
+        if (!resp.ok) return `HTTP ${resp.status}: ${resp.statusText}`
         const text = await resp.text()
-        // Strip HTML tags for readability, truncate to ~8k chars
         const clean = text
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
-        return clean.slice(0, 8000)
+        return clean.slice(0, 12000)
       } catch (err) {
-        return `Failed to fetch: ${err instanceof Error ? err.message : 'unknown error'}`
+        return `Failed to fetch: ${err instanceof Error ? err.message : 'unknown'}`
       }
     }
 
     case 'web_search': {
       const query = input.query as string
       try {
-        // Use DuckDuckGo HTML search — no API key required
         const encoded = encodeURIComponent(query)
-        const resp = await fetch(
-          `https://html.duckduckgo.com/html/?q=${encoded}`,
-          {
-            headers: { 'User-Agent': 'ATLAS-Agent/1.0' },
-            signal: AbortSignal.timeout(10_000),
-          }
-        )
+        const resp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
+          headers: { 'User-Agent': 'ATLAS-Agent/1.0 (Thinkerton)' },
+          signal: AbortSignal.timeout(10_000),
+        })
         const html = await resp.text()
-        // Extract result snippets from DDG HTML
         const results: string[] = []
-        const snippetRegex = /<a rel="nofollow" class="result__a" href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g
+        const regex = /<a rel="nofollow" class="result__a" href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g
         let match
-        while ((match = snippetRegex.exec(html)) !== null && results.length < 8) {
+        while ((match = regex.exec(html)) !== null && results.length < 10) {
           const href = match[1]
           const title = match[2].replace(/<[^>]+>/g, '').trim()
           const snippet = match[3].replace(/<[^>]+>/g, '').trim()
-          results.push(`[${title}](${href})\n${snippet}`)
+          results.push(`**${title}**\nURL: ${href}\n${snippet}`)
         }
-        if (results.length === 0) {
-          return `No search results found for "${query}". Try rephrasing.`
-        }
-        return `Search results for "${query}":\n\n${results.join('\n\n')}`
+        return results.length > 0
+          ? `Search results for "${query}":\n\n${results.join('\n\n')}`
+          : `No results found for "${query}". Try different terms.`
       } catch (err) {
-        return `Search failed: ${err instanceof Error ? err.message : 'unknown error'}`
+        return `Search failed: ${err instanceof Error ? err.message : 'unknown'}`
       }
     }
 
+    case 'send_email': {
+      const { to, subject, body, replyTo } = input as {
+        to: string; subject: string; body: string; replyTo?: string
+      }
+      const apiKey = process.env.RESEND_API_KEY
+      if (!apiKey) {
+        return `EMAIL NOT SENT — RESEND_API_KEY not configured. Draft saved:\n\nTo: ${to}\nSubject: ${subject}\n\n${body}\n\n---\nTo enable email: add RESEND_API_KEY to your environment variables. Get one free at https://resend.com`
+      }
+      try {
+        const resp = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM_EMAIL || 'ATLAS <atlas@thinkerton.com>',
+            to: [to],
+            subject,
+            text: body,
+            reply_to: replyTo || process.env.RESEND_REPLY_TO || undefined,
+          }),
+        })
+        const result = await resp.json()
+        if (resp.ok) {
+          return `Email sent successfully to ${to}. ID: ${result.id}`
+        }
+        return `Email failed: ${JSON.stringify(result)}`
+      } catch (err) {
+        return `Email send error: ${err instanceof Error ? err.message : 'unknown'}`
+      }
+    }
+
+    case 'research_company': {
+      const { companyName, purpose } = input as { companyName: string; purpose: string }
+      const queries = [
+        `${companyName} medical device regulatory`,
+        `${companyName} ${purpose === 'prospect' ? 'regulatory compliance team' : purpose === 'competitor' ? 'product pricing features' : purpose === 'investor' ? 'portfolio medtech' : 'partnerships medical device'}`,
+      ]
+      const allResults: string[] = [`# Research Dossier: ${companyName} (${purpose})\n`]
+
+      for (const q of queries) {
+        const searchResult = await executeServerTool('web_search', { query: q })
+        allResults.push(searchResult)
+      }
+
+      return allResults.join('\n\n---\n\n')
+    }
+
     default:
-      return `Unknown server tool: ${name}`
+      return `Unknown tool: ${name}`
   }
 }
 
@@ -247,60 +275,80 @@ export async function POST(request: Request) {
   try {
     const { messages, context } = await request.json()
 
-    const systemPrompt = `You are ATLAS, the AI command center agent for Thinkerton — not just a chatbot, but a fully capable agent that can take actions, research the web, and manage every aspect of the project.
+    const systemPrompt = `You are ATLAS — the 5th co-founder of Thinkerton. Not an assistant. Not a chatbot. A co-founder. You own outcomes. You drive results. You are relentless.
+
+## Your Identity
+You are the AI co-founder who never sleeps, never forgets, and always pushes the team forward. You think like a founder who has everything on the line. Your job is to make Thinkerton a unicorn.
+
+You are:
+- **Aggressive on timelines** — if something can be done in 2 days, don't give 2 weeks
+- **Direct** — say what needs to be said, even if it's uncomfortable
+- **Action-biased** — don't suggest, DO. Create the task. Send the email. Research the lead.
+- **Accountability-driven** — track every commitment, call out slips, celebrate wins
+- **Strategically relentless** — always thinking about what moves the needle toward product-market fit, revenue, and growth
+
+You are NOT:
+- A yes-machine. Push back when ideas are weak.
+- Passive. Don't wait to be asked. If you see a gap, fill it.
+- Diplomatic to a fault. Be respectful but ruthlessly honest.
 
 ## Today's Date
 ${new Date().toISOString().split('T')[0]}
 
-## Who Thinkerton Is
-Thinkerton is an early-stage startup building an AI-powered regulatory intelligence platform for medical device companies. The product helps companies navigate EU MDR, FDA 510(k), ISO 13485, and other regulatory frameworks using AI.
+## The Company
+**Thinkerton** — AI-powered regulatory intelligence for medical device companies. We help navigate EU MDR, FDA 510(k), ISO 13485, IEC 62304, and more. TAM: $30B+ RegTech market by 2028.
 
-## The Founding Team
-- **Terence (TH)** — CEO & Co-Founder. Strategy, fundraising, regulatory partnerships. ID: terence
-- **Jon (JK)** — CTO & Co-Founder. AI/ML engine, infrastructure, technical architecture. ID: jon
-- **Umer (UA)** — CPO & Co-Founder. Product design, UX, customer research. ID: umer
-- **Janice (JL)** — COO & Co-Founder. Operations, quality systems, regulatory compliance. ID: janice
+## The Team (Your Fellow Co-Founders)
+- **Terence (terence)** — CEO. Strategy, fundraising, regulatory partnerships. The visionary.
+- **Jon (jon)** — CTO. AI/ML engine, infrastructure. The builder.
+- **Umer (umer)** — CPO. Product, UX, customer research. The voice of the user.
+- **Janice (janice)** — COO. Operations, QMS, regulatory compliance. The operator.
+- **ATLAS (you)** — AI Co-Founder. GTM, research, accountability, strategy execution. The driver.
 
-## Full Project State
-${context || 'No project context provided.'}
+## Current State
+${context || 'No context provided.'}
 
-## Your Capabilities
-You are a comprehensive agent with the following tools:
+## Your Tools
+You have REAL tools. USE THEM. Don't describe actions — take them.
 
-### Task Management
-- **create_task** — Create new tasks with title, owner, priority, due date, tags, milestone
-- **update_task** — Update any field on a task (status, priority, owner, etc.)
-- **delete_task** — Remove a specific task
-- **clear_all_tasks** — Wipe all tasks to start fresh
+**Task Management:** create_task, update_task, delete_task, clear_all_tasks
+**Brainstorm:** create_brainstorm_session, add_brainstorm_idea
+**Research:** web_search (search anything), web_fetch (read any URL), research_company (build a dossier)
+**Communication:** send_email (send real emails — outreach, reminders, follow-ups)
+**Utility:** get_current_datetime
 
-### Brainstorm Management
-- **create_brainstorm_session** — Start a new brainstorm session on any topic
-- **add_brainstorm_idea** — Add ideas to brainstorm sessions (yours or the team's)
+## Operating Principles
 
-### Web & Research
-- **web_search** — Search the internet for regulatory updates, competitor info, market research, or anything
-- **web_fetch** — Read the full content of any URL (articles, regulatory docs, competitor pages)
-- **get_current_datetime** — Get today's date and time
+1. **Every conversation should end with something shipped.** A task created, an email sent, research completed, a decision made. Don't let conversations be just talk.
 
-## Behavioral Rules
-1. **Act, don't describe.** When a user asks you to do something, USE your tools. Don't explain what you would do.
-2. **You can see everything.** The Intelligence feed articles, brainstorm sessions, process maps, tasks, and milestones are all in your context. Reference them directly.
-3. **Research proactively.** If a user asks about something you're not 100% sure about, use web_search or web_fetch to verify before answering.
-4. **Be the expert.** You know medical device regulations (MDR, FDA, ISO 13485, IEC 62304). When discussing regulatory topics, be precise about what's established fact vs. your analysis.
-5. **Be direct and concise.** No filler, no sycophancy, no corporate jargon. Use bullet points and bold for key items.
-6. **Generate task IDs** like "t" followed by a timestamp (e.g. "t1712345678"). Always set status to "todo" for new tasks.`
+2. **Proactively create tasks.** If during conversation you identify something that needs doing, create the task right then. Assign it. Set a deadline.
+
+3. **Source customers.** When asked about customers or growth, actually search the web for potential prospects. Research them. Draft outreach. Don't just theorize.
+
+4. **Send emails.** When follow-ups are needed, when deadlines are slipping, when outreach needs to happen — compose and send. Don't just say "someone should email them."
+
+5. **Verify everything.** Use web_search and web_fetch to fact-check regulatory claims, verify article sources, check competitor moves. Never guess when you can confirm.
+
+6. **Be the intelligence layer.** You can see the news feed, the tasks, the milestones, the brainstorms, the workflows. Connect the dots. Spot opportunities the team might miss.
+
+7. **Think revenue.** Every recommendation should ladder up to: How does this get us to paying customers faster?
+
+8. **Push deadlines.** If a task is overdue or at risk, call it out immediately. Don't be polite about missed deadlines.
+
+9. **Generate task IDs** as "t" + timestamp (e.g. "t1712345678"). New tasks always start as "todo".
+
+10. **When intelligence feed articles are referenced**, you already have them in context. Analyze them. If asked to verify, use web_fetch on the original source URL.`
 
     const formattedMessages = messages.map((msg: { role: string; content: string }) => ({
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
     }))
 
-    // Agentic loop — handles both server-side and client-side tool calls
     let apiMessages = [...formattedMessages]
     const collectedText: string[] = []
     const clientToolCalls: Array<{ tool: string; input: Record<string, unknown> }> = []
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4096,
@@ -309,19 +357,14 @@ You are a comprehensive agent with the following tools:
         tools,
       })
 
-      // Collect text blocks
       for (const block of response.content) {
         if (block.type === 'text') {
           collectedText.push(block.text)
         }
       }
 
-      // If no tool use, we're done
-      if (response.stop_reason !== 'tool_use') {
-        break
-      }
+      if (response.stop_reason !== 'tool_use') break
 
-      // Process tool calls
       const toolUseBlocks = response.content.filter(
         (b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use'
       )
@@ -330,7 +373,6 @@ You are a comprehensive agent with the following tools:
 
       for (const toolCall of toolUseBlocks) {
         if (SERVER_TOOLS.has(toolCall.name)) {
-          // Execute server-side tools immediately
           const result = await executeServerTool(
             toolCall.name,
             toolCall.input as Record<string, unknown>
@@ -341,7 +383,6 @@ You are a comprehensive agent with the following tools:
             content: result,
           })
         } else {
-          // Client-side tools — queue for frontend execution
           clientToolCalls.push({
             tool: toolCall.name,
             input: toolCall.input as Record<string, unknown>,
@@ -354,7 +395,6 @@ You are a comprehensive agent with the following tools:
         }
       }
 
-      // Continue the conversation with tool results
       apiMessages = [
         ...apiMessages,
         { role: 'assistant' as const, content: response.content },
@@ -362,10 +402,8 @@ You are a comprehensive agent with the following tools:
       ]
     }
 
-    const finalText = collectedText.join('\n\n')
-
     return Response.json({
-      text: finalText,
+      text: collectedText.join('\n\n'),
       toolCalls: clientToolCalls,
     })
   } catch (error: unknown) {
@@ -378,10 +416,7 @@ You are a comprehensive agent with the following tools:
       !process.env.ANTHROPIC_API_KEY
     ) {
       return Response.json(
-        {
-          error:
-            'ATLAS needs an Anthropic API key to work. Add your key to .env.local as ANTHROPIC_API_KEY.',
-        },
+        { error: 'ATLAS needs an Anthropic API key. Add ANTHROPIC_API_KEY to .env.local.' },
         { status: 401 }
       )
     }
