@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { useMutation, useQuery } from 'convex/react'
 import { anyApi } from 'convex/server'
@@ -18,7 +18,6 @@ import { MobileNav } from '@/components/mobile-nav'
 import {
   team,
   milestones,
-  initialTasks,
   initialSessions,
   initialMessages,
   initialProcessMaps,
@@ -28,12 +27,6 @@ import {
   type BrainstormSession,
   type ProcessMap,
 } from '@/lib/store'
-
-const logDebug = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7322/ingest/51b55f45-c3d4-4b7e-87ce-267cceb9bc9c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2615d5'},body:JSON.stringify({sessionId:'2615d5',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-}
 
 export default function ThinkPage() {
   const [activeView, setActiveView] = useState<ViewId>('dashboard')
@@ -45,24 +38,10 @@ export default function ThinkPage() {
   const [isStreaming, setIsStreaming] = useState(false)
 
   const tasks = (useQuery(anyApi.tasks.list, {}) as Task[] | undefined) ?? []
-  const seedTasks = useMutation(anyApi.tasks.seed)
   const createTask = useMutation(anyApi.tasks.create)
   const updateTask = useMutation(anyApi.tasks.update)
   const removeTask = useMutation(anyApi.tasks.remove)
-
-  useEffect(() => {
-    logDebug('H3', 'app/page.tsx:56', 'Tasks query snapshot', { taskCount: tasks.length })
-    if (tasks.length === 0) {
-      logDebug('H4', 'app/page.tsx:58', 'Seeding initial tasks triggered', { seedCount: initialTasks.length })
-      void seedTasks({ tasks: initialTasks }).then(() => {
-        logDebug('H4', 'app/page.tsx:60', 'Seed mutation resolved', { ok: true })
-      }).catch((error: unknown) => {
-        logDebug('H4', 'app/page.tsx:62', 'Seed mutation failed', {
-          error: error instanceof Error ? error.message : 'unknown',
-        })
-      })
-    }
-  }, [tasks.length, seedTasks])
+  const clearAllTasks = useMutation(anyApi.tasks.clearAll)
 
   const handleUpdateTask = useCallback((id: string, updates: Partial<Task>) => {
     void updateTask({ id, updates })
@@ -75,6 +54,17 @@ export default function ThinkPage() {
   const handleDeleteTask = useCallback((id: string) => {
     void removeTask({ id })
   }, [removeTask])
+
+  const handleClearAllTasks = useCallback(() => {
+    void clearAllTasks({})
+  }, [clearAllTasks])
+
+  const taskActions = useMemo(() => ({
+    onCreate: handleCreateTask,
+    onUpdate: handleUpdateTask,
+    onDelete: handleDeleteTask,
+    onClearAll: handleClearAllTasks,
+  }), [handleCreateTask, handleUpdateTask, handleDeleteTask, handleClearAllTasks])
 
   // For streaming: update existing message or add new one
   const handleSendMessage = useCallback((msg: ChatMessage) => {
@@ -191,6 +181,7 @@ export default function ThinkPage() {
         setIsStreaming={setIsStreaming}
         tasks={tasks}
         milestones={milestones}
+        taskActions={taskActions}
       />
 
       <MobileNav
@@ -218,6 +209,7 @@ export default function ThinkPage() {
               setIsStreaming={setIsStreaming}
               tasks={tasks}
               milestones={milestones}
+              taskActions={taskActions}
             />
           </div>
         </div>

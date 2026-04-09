@@ -132,3 +132,15 @@ export const remove = mutationGeneric({
     return null;
   },
 });
+
+export const clearAll = mutationGeneric({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const tasks = await ctx.db.query("tasks").take(500);
+    for (const task of tasks) {
+      await ctx.db.delete(task._id);
+    }
+    return null;
+  },
+});

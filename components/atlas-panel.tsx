@@ -5,6 +5,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUp, Sparkles } from 'lucide-react'
 import { team, type ChatMessage, type TeamMember, type Task, type Milestone } from '@/lib/store'
 
+type ToolCall = {
+  tool: string
+  input: Record<string, unknown>
+}
+
+type TaskActions = {
+  onCreate: (task: Task) => void
+  onUpdate: (id: string, updates: Partial<Task>) => void
+  onDelete: (id: string) => void
+  onClearAll: () => void
+}
+
 type AtlasPanelProps = {
   isOpen: boolean
   messages: ChatMessage[]
@@ -14,6 +26,7 @@ type AtlasPanelProps = {
   setIsStreaming: (v: boolean) => void
   tasks: Task[]
   milestones: Milestone[]
+  taskActions: TaskActions
 }
 
 const quickPrompts = [
@@ -23,7 +36,7 @@ const quickPrompts = [
   "Suggest next steps",
 ]
 
-export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStreaming, setIsStreaming, tasks, milestones }: AtlasPanelProps) {
+export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStreaming, setIsStreaming, tasks, milestones, taskActions }: AtlasPanelProps) {
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -41,7 +54,7 @@ export function AtlasPanel({ isOpen, messages, onSendMessage, currentUser, isStr
   const buildContext = useCallback(() => {
     const taskSummary = tasks.map(t => {
       const owner = team.find(m => m.id === t.owner)
-      return `- [${t.status.toUpperCase()}] ${t.title} (${t.priority} priority, assigned to ${owner?.name || 'unassigned'}, due ${t.dueDate})`
+      return `- [${t.status.toUpperCase()}] (${t.id}) ${t.title} (${t.priority} priority, assigned to ${owner?.name || 'unassigned'}, due ${t.dueDate})`
     }).join('\n')
 
     const milestoneSummary = milestones.map(m => {
@@ -59,7 +72,6 @@ ${currentUser.name} (${currentUser.role})`
   }, [tasks, milestones, currentUser])
 
   const buildApiMessages = useCallback((newUserText: string) => {
-    // Convert chat history to API format
     const apiMessages: { role: 'user' | 'assistant'; content: string }[] = []
 
     for (const msg of messages) {
@@ -71,17 +83,62 @@ ${currentUser.name} (${currentUser.role})`
       }
     }
 
-    // Add the new message
     apiMessages.push({ role: 'user', content: `[${currentUser.name}]: ${newUserText}` })
 
     return apiMessages
   }, [messages, currentUser])
 
+  const executeToolCalls = useCallback((toolCalls: ToolCall[]) => {
+    for (const call of toolCalls) {
+      switch (call.tool) {
+        case 'create_task': {
+          const inp = call.input as {
+            title: string
+            description: string
+            owner: string
+            priority: string
+            dueDate: string
+            tags: string[]
+            milestoneId?: string
+          }
+          const task: Task = {
+            id: inp.milestoneId ? `t${Date.now()}` : `t${Date.now()}`,
+            title: inp.title,
+            description: inp.description,
+            owner: inp.owner,
+            status: 'todo',
+            priority: inp.priority as Task['priority'],
+            dueDate: inp.dueDate,
+            tags: inp.tags,
+            deliverable: '',
+            verified: false,
+            milestoneId: inp.milestoneId,
+          }
+          taskActions.onCreate(task)
+          break
+        }
+        case 'update_task': {
+          const inp = call.input as { id: string; updates: Partial<Task> }
+          taskActions.onUpdate(inp.id, inp.updates)
+          break
+        }
+        case 'delete_task': {
+          const inp = call.input as { id: string }
+          taskActions.onDelete(inp.id)
+          break
+        }
+        case 'clear_all_tasks': {
+          taskActions.onClearAll()
+          break
+        }
+      }
+    }
+  }, [taskActions])
+
   const handleSend = async (text?: string) => {
     const msg = text || input.trim()
     if (!msg || isStreaming) return
 
-    // Add user message
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: currentUser.id,
@@ -92,9 +149,7 @@ ${currentUser.name} (${currentUser.role})`
     setInput('')
     setIsStreaming(true)
 
-    // Create placeholder for streaming response
     const atlasId = `msg-${Date.now() + 1}`
-    let fullText = ''
 
     try {
       abortRef.current = new AbortController()
@@ -111,75 +166,40 @@ ${currentUser.name} (${currentUser.role})`
 
       if (!response.ok) {
         const errorData = await response.json()
-        fullText = errorData.error || 'Something went wrong. Please try again.'
         onSendMessage({
           id: atlasId,
           sender: 'atlas',
-          text: fullText,
+          text: errorData.error || 'Something went wrong. Please try again.',
           timestamp: Date.now(),
         })
         setIsStreaming(false)
         return
       }
 
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No reader')
+      const data = await response.json()
 
-      const decoder = new TextDecoder()
+      // Execute any tool calls against Convex
+      if (data.toolCalls && data.toolCalls.length > 0) {
+        executeToolCalls(data.toolCalls)
+      }
 
-      // Add initial empty atlas message
+      // Show the text response
       onSendMessage({
         id: atlasId,
         sender: 'atlas',
-        text: '',
+        text: data.text || 'Done.',
         timestamp: Date.now(),
       })
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') break
-            try {
-              const parsed = JSON.parse(data)
-              if (parsed.text) {
-                fullText += parsed.text
-                // Update the message in place by dispatching a special update
-                onSendMessage({
-                  id: atlasId,
-                  sender: 'atlas',
-                  text: fullText,
-                  timestamp: Date.now(),
-                })
-              }
-              if (parsed.error) {
-                fullText = parsed.error
-              }
-            } catch {
-              // skip malformed JSON
-            }
-          }
-        }
-      }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
         // User cancelled
       } else {
-        if (!fullText) {
-          fullText = 'I couldn\'t connect right now. Make sure the API key is set in `.env.local` and the dev server is running.'
-          onSendMessage({
-            id: atlasId,
-            sender: 'atlas',
-            text: fullText,
-            timestamp: Date.now(),
-          })
-        }
+        onSendMessage({
+          id: atlasId,
+          sender: 'atlas',
+          text: 'I couldn\'t connect right now. Make sure the API key is set in `.env.local` and the dev server is running.',
+          timestamp: Date.now(),
+        })
       }
     } finally {
       setIsStreaming(false)
@@ -197,7 +217,6 @@ ${currentUser.name} (${currentUser.role})`
   const getMember = (id: string) => team.find((m) => m.id === id)
 
   const formatMessage = (text: string) => {
-    // Handle **bold** and basic formatting
     const parts = text.split(/(\*\*[^*]+\*\*)/g)
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
@@ -258,12 +277,12 @@ ${currentUser.name} (${currentUser.role})`
                   Hey, I'm ATLAS
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
-                  Your AI project assistant. Ask me anything about strategy, tasks, regulatory questions, or what to prioritize next.
+                  Your AI project assistant. I can create, update, and delete tasks, help with strategy, regulatory questions, and prioritization.
                 </div>
               </div>
             )}
 
-            {messages.map((msg, idx) => {
+            {messages.map((msg) => {
               const isAtlas = msg.sender === 'atlas'
               const member = !isAtlas ? getMember(msg.sender) : null
 
